@@ -4,6 +4,7 @@ library(ggplot2)
 library(lubridate)
 library(writexl)
 library (dplyr)  
+library(zoo)
 
 ######### READ DATA ######################
 
@@ -56,12 +57,29 @@ dta$time <- as.POSIXct(x = times, format = "%Y-%m-%d %H:%M")
 dta$DATE2 <- strtrim(x = as.character(dta$date), width = 10)
 dta$DATE2 <- as.POSIXct(paste(dta$DATE2), format = "%Y-%m-%d")
 
+dta$date <- dta$datum <-dta$time <- NULL
+dta_melt <- melt(dta, id.vars = "DATE2")
+
+hours <-  c(24,48,72,96,120,144)
+for (i in c(1:length(hours))){
+  sum_colname <- paste0("value", hours[i], "_sum")
+  mean_colname <- paste0("value", hours[i], "_mean")
+  colname <- paste0("value", hours[i])
+  dta_melt[, c(sum_colname) := rollsum(value, hours[i], na.rm = T, align = "right", fill = NA), by = variable]
+  dta_melt[, c(mean_colname) := rollmean(value, hours[i], na.rm = T, align = "right", fill = NA), by = variable]
+  dta_melt[, c(colname) := ifelse(variable %in% c("SRA1H", "SSV1H"), get(sum_colname), get(mean_colname))]
+  dta_melt[, c(sum_colname):= NULL ]
+  dta_melt[, c(mean_colname):= NULL ]
+  gc()
+  print(hours[i])
+}
+
 Aval$DATE2 <- strtrim(x = Aval$date, width = 10)
 
 Aval$DATE3 <- as.POSIXct(paste0(Aval$DATE2, " 07:00"), format = "%d.%m.%Y %H:%M")
 Aval$DATE_OFF <- as.POSIXct(Aval$DATE3 + (17*60*60))
 
-Aval_short <- Aval[DATE3 %between% c(dta[1,DATE2] + 5*24*60*60, dta[nrow(dta), DATE2])]
+Aval_short <- Aval[DATE_OFF %between% c(dta_melt[complete.cases(dta_melt), DATE2][1], dta_melt[nrow(dta_melt), DATE2])]
 
 Aval_short$ID <- paste0("Aval ", 1:nrow(Aval_short))
 aval_list <- list()
@@ -69,7 +87,7 @@ for (i in 1:nrow(Aval_short)){
   id <- Aval_short[i,30]#30 sloupec Aval 1,2,3...
   start = Aval_short[i,29]#29 sloupec pro ka?dou lavinu, datum
   stop =  Aval_short[i,29] - 5*24*60*60 #okno -5, form?t Posix pracuje se sekundami
-  dta_aval <- dta[DATE2 %between% c(stop[1], start[1]) , ]#vezmi ??dky start, stop a pro ty mi vykresli meteo prom?nn?
+  dta_aval <- dta_melt[DATE2 %between% c(stop[1], start[1]) , ]#vezmi ??dky start, stop a pro ty mi vykresli meteo prom?nn?
   dta_aval$PLOT <- 1:nrow(dta_aval)# pro ka?dou ud?lost graf? kv?li ?emu? pro lep?? vykreslen? dat # K ?EMU PLOT?
   dta_aval$ID <- id # sloupec id asi definov?n? parametru?
   aval_list[[i]] <- dta_aval
@@ -79,8 +97,10 @@ for (i in 1:nrow(Aval_short)){
 aval_dtafr <- rbindlist(aval_list)
 aval_dtafr <- merge(x = aval_dtafr, y = Aval_short[,.(event,ID)], by = "ID")
 
-aval_dtafr$date <- aval_dtafr$datum <-aval_dtafr$time <- NULL
-aval_melt <- melt(data = aval_dtafr, id.vars = c("ID", "DATE2", "PLOT", "event"))
+colnames(aval_dtafr) <- c(colnames(aval_dtafr)[1:2], "var", colnames(aval_dtafr)[4:length(colnames(aval_dtafr))])
+aval_melt <- melt(data = aval_dtafr, id.vars = c("ID", "DATE2", "PLOT", "event", "var"))
+aval_melt[, var_name:= paste0(var, "_", variable)]
+#aval_melt$var <- aval_melt$variable <- NULL
 library(dplyr)
 aval_nonaval <- Aval_short[,.(event, ID)]
 #aval_melt_ID <- data.table(full_join(x = aval_melt, y = aval_nonaval, by = "ID"))
