@@ -73,6 +73,7 @@ for (i in c(1:length(hours))){
   gc()
   print(hours[i])
 }
+saveRDS(object = dta_melt, file = "data/dta_melt.rds")
 
 Aval$DATE2 <- strtrim(x = Aval$date, width = 10)
 
@@ -97,6 +98,8 @@ for (i in 1:nrow(Aval_short)){
 aval_dtafr <- rbindlist(aval_list)
 aval_dtafr <- merge(x = aval_dtafr, y = Aval_short[,.(event,ID)], by = "ID")
 
+saveRDS(object = aval_dtafr, file = "data/aval_dtafr.rds")
+
 colnames(aval_dtafr) <- c(colnames(aval_dtafr)[1:2], "var", colnames(aval_dtafr)[4:length(colnames(aval_dtafr))])
 aval_melt <- melt(data = aval_dtafr, id.vars = c("ID", "DATE2", "PLOT", "event", "var"))
 aval_melt[, var_name:= paste0(var, "_", variable)]
@@ -114,7 +117,7 @@ aval_nonaval <- Aval_short[,.(event, ID)]
 fmax_t <- list()
 hours <- c(24,48,72,96,120,144)
 for (i in c(1:length(hours))){
-  a <- aval_melt[PLOT %between% c(1,i) & variable %in% c("T", "Fmax"), {min = min(value, na.rm = T); max = max(value, na.rm = T); T0 = value[1]; list(min = min, max = max, T0 = T0)}, by = .(ID, event, variable)]
+  a <- aval_melt[PLOT %between% c(1, hours[i]) & var %in% c("T", "Fmax") & variable == "value", {min = min(value, na.rm = T); max = max(value, na.rm = T); T0 = value[1]; list(min = min, max = max, T0 = T0)}, by = .(ID, event, var)]
   a$H <- hours[i]
   fmax_t[[i]] <- a
   print(hours[i])
@@ -127,7 +130,7 @@ fmax_t <- rbindlist(fmax_t)
 precip <- list()
 hours <- c(24,48,72,96,120,144)
 for (i in c(1:length(hours))){
-  a <- aval_melt[PLOT %between% c(1,i) & variable %in% c("SRA1H"), {sum = sum(value, na.rm = T); T0 = value[1] ; list(sum = sum, T0 = T0)}, by = .(ID, event, variable)]
+  a <- aval_melt[PLOT %between% c(1, hours[i]) & var %in% c("SRA1H") & variable == "value", {sum = sum(value, na.rm = T); T0 = value[1] ; list(sum = sum, T0 = T0)}, by = .(ID, event, var)]
   a$H <- hours[i]
   precip[[i]] <- a
   print(hours[i])
@@ -139,7 +142,7 @@ precip <- rbindlist(precip)
 avg_rest <- list()
 hours <- c(24,48,72,96,120,144)
 for (i in c(1:length(hours))){
-  a <- aval_melt[PLOT %between% c(1,i) & !variable %in% c("SRA1H", "T", "Fmax"), {avg = mean(value, na.rm = T); T0 = value[1] ; list(avg = avg, T0 = T0)}, by = .(ID, event, variable)]
+  a <- aval_melt[PLOT %between% c(1, hours[i]) & !var %in% c("SRA1H", "T", "Fmax") & variable == "value", {avg = mean(value, na.rm = T); T0 = value[1] ; list(avg = avg, T0 = T0)}, by = .(ID, event, var)]
   a$H <- hours[i]
   avg_rest[[i]] <- a
   print(hours[i])
