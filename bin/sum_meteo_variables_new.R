@@ -85,10 +85,10 @@ Aval_short$ID <- paste0("Aval ", 1:nrow(Aval_short))
 aval_list <- list()
 for (i in 1:nrow(Aval_short)){
   id <- Aval_short[i,30]#30 sloupec Aval 1,2,3...
-  start = Aval_short[i,29]#29 sloupec pro ka?dou lavinu, datum
-  stop =  Aval_short[i,29] - 5*24*60*60 #okno -5, form?t Posix pracuje se sekundami
+  start <- Aval_short[i,29]#29 sloupec pro ka?dou lavinu, datum
+  stop <- Aval_short[i,29] - 5*24*60*60 #okno -5, form?t Posix pracuje se sekundami
   dta_aval <- dta_melt[DATE2 %between% c(stop[1], start[1]) , ]#vezmi ??dky start, stop a pro ty mi vykresli meteo prom?nn?
-  dta_aval$PLOT <- 1:nrow(dta_aval)# pro ka?dou ud?lost graf? kv?li ?emu? pro lep?? vykreslen? dat # K ?EMU PLOT?
+  dta_aval[, PLOT:= c(1:.N), by = variable] # pro ka?dou ud?lost graf? kv?li ?emu? pro lep?? vykreslen? dat # K ?EMU PLOT?
   dta_aval$ID <- id # sloupec id asi definov?n? parametru?
   aval_list[[i]] <- dta_aval
   print(i)
@@ -100,6 +100,9 @@ aval_dtafr <- merge(x = aval_dtafr, y = Aval_short[,.(event,ID)], by = "ID")
 colnames(aval_dtafr) <- c(colnames(aval_dtafr)[1:2], "var", colnames(aval_dtafr)[4:length(colnames(aval_dtafr))])
 aval_melt <- melt(data = aval_dtafr, id.vars = c("ID", "DATE2", "PLOT", "event", "var"))
 aval_melt[, var_name:= paste0(var, "_", variable)]
+
+aval_dcast <- dcast.data.table(aval_melt, DATE2 + ID + PLOT + event ~ var_name, value.var = 'value')
+
 #aval_melt$var <- aval_melt$variable <- NULL
 library(dplyr)
 aval_nonaval <- Aval_short[,.(event, ID)]
