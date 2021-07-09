@@ -194,7 +194,12 @@ delta_sce[,delta_sce:=max_sce - T0]
 
 sno_sum <- aval_melt[PLOT %between% c(1, 120) & var %in% c("SNO") & variable == "value", .(sum = sum(unique(value), na.rm = T)), by = .(ID, event, var)]
 
+################# MERGE ###################################
 
+fmin <- dcast(fmax_t[var == "Fmax", .(ID, event, min,H, var)], ID+event~var+H, value.var = "min")
+tmin <- dcast(fmax_t[var == "T", .(ID, event, min,H, var)], ID+event~var+H, value.var = "min")
+
+model_dta <- merge(x = fmin, y = tmin, by = c("ID", "event"))
 ############################################################
 ############################################################
 
