@@ -3,7 +3,7 @@ library(readr)
 library(ggplot2)
 library(lubridate)
 library(writexl)
-library (dplyr)  
+library(dplyr)  
 library(zoo)
 
 ######### READ DATA ######################
@@ -74,6 +74,7 @@ for (i in c(1:length(hours))){
   print(hours[i])
 }
 saveRDS(object = dta_melt, file = "data/dta_melt.rds")
+dta_melt <- readRDS(file = "data/dta_melt.rds")
 
 Aval$DATE2 <- strtrim(x = Aval$date, width = 10)
 
@@ -99,6 +100,7 @@ aval_dtafr <- rbindlist(aval_list)
 aval_dtafr <- merge(x = aval_dtafr, y = Aval_short[,.(event,ID)], by = "ID")
 
 saveRDS(object = aval_dtafr, file = "data/aval_dtafr.rds")
+aval_dtafr <- readRDS(file = "data/aval_dtafr.rds")
 
 colnames(aval_dtafr) <- c(colnames(aval_dtafr)[1:2], "var", colnames(aval_dtafr)[4:length(colnames(aval_dtafr))])
 aval_melt <- melt(data = aval_dtafr, id.vars = c("ID", "DATE2", "PLOT", "event", "var"))
@@ -113,7 +115,7 @@ aval_nonaval <- Aval_short[,.(event, ID)]
 # denn? data - je zahrhnuto count, za??n? od r. 2004
 #Aval_short[, AV_count := sum(event), by = date]
 
-####### MIN MAX pro T FMAX
+####### MIN MAX pro T FMAX ###############
 fmax_t <- list()
 hours <- c(24,48,72,96,120,144)
 for (i in c(1:length(hours))){
@@ -125,7 +127,7 @@ for (i in c(1:length(hours))){
 fmax_t <- rbindlist(fmax_t)
 
 
-########### SUM pro PRECIP
+########### SUM pro PRECIP ###########
 
 precip <- list()
 hours <- c(24,48,72,96,120,144)
@@ -137,7 +139,7 @@ for (i in c(1:length(hours))){
 }
 precip <- rbindlist(precip)
 
-############ AVG pro zbytek
+############ AVG pro zbytek ###########
 
 avg_rest <- list()
 hours <- c(24,48,72,96,120,144)
@@ -150,14 +152,58 @@ for (i in c(1:length(hours))){
 
 avg_rest <- rbindlist(avg_rest)
 
-########### deltas
+#################### ? SNOW DRIFT ? ######
 
-fmax_t[,delta_min:= T0 - min]
-fmax_t[,delta_max:= T0 - max]
+snow_drift <- list()
+hours <- c(24,48,72,96,120,144)
+for (i in c(1:length(hours))){
+  a <- aval_melt[PLOT %between% c(1, hours[i]) & var %in% c("SRA1H") & variable == "value", {sum_p = sum(value, na.rm = T); list(sum_p = sum_p)}, by = .(ID, event)]
+  b <- aval_melt[PLOT %between% c(1, hours[i]) & var %in% c("Fprum") & variable == "value", {mean_f = mean(value, na.rm = T); list(mean_f = mean_f)}, by = .(ID, event)]
+  a$H <- hours[i]
+  b$H <- hours[i]
+  c <- merge(x = a, y = b, by = c("ID", "event", "H"))
+  c$f4 <- c$mean_f^4  ##########  opravdu ????
+  avg_rest[[i]] <- a
+  print(hours[i])
+}
+
+
+########### DELTA T ######################
+
+delta_t <- fmax_t[var == "T", ]
+
+delta_t[,delta_min:= T0 - min]
+delta_t[,delta_max:= T0 - max]
+
+########### DELTA SCE ####################
+
+delta_sce <- list()
+hours <- c(24,48,72,96,120,144)
+for (i in c(1:length(hours))){
+  a <- aval_melt[PLOT %between% c(1, hours[i]) & var %in% c("SCE") & variable == "value", {max_sce = max(value, na.rm = T); T0 = value[1] ; list(max_sce = max_sce, T0 = T0)}, by = .(ID, event, var)]
+  a$H <- hours[i]
+  delta_sce[[i]] <- a
+  print(hours[i])
+}
+
+delta_sce <- rbindlist(delta_sce)
+
+delta_sce[,delta_sce:=max_sce - T0]
+
+############ FIVE DAY SUM of SNOW ##########################
+
+sno_sum <- aval_melt[PLOT %between% c(1, 120) & var %in% c("SNO") & variable == "value", .(sum = sum(unique(value), na.rm = T)), by = .(ID, event, var)]
+
+
+############################################################
+############################################################
+
 
 precip[,delta:= T0 - sum]
 
 avg_rest[,delta:= T0 - avg]
+
+unique(avg_rest$var)
 
 ggplot(fmax_t)+
   geom_boxplot(aes(x = event, y = min, group = event, fill = as.factor(event)))+
