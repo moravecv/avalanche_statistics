@@ -175,7 +175,7 @@ delta_t <- fmax_t[var == "T", ]
 delta_t[,delta_min:= T0 - min]
 delta_t[,delta_max:= T0 - max]
 
-########### DELTA SCE ####################
+########### DELTA SCE #####################
 
 delta_sce <- list()
 hours <- c(24,48,72,96,120,144)
